@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Feedback App with Edit</title>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    form {
+      max-width: 400px;
+      border: 1px solid #aaa;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    input, textarea, button {
+      width: 95%;
+      margin-bottom: 10px;
+      padding: 8px;
+      font-size: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 8px;
+      text-align: left;
+    }
+    .edit-btn {
+      cursor: pointer;
+      color: blue;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Submit Feedback</h2>
+
+  <form id="feedbackForm">
+    <input type="text" id="username" placeholder="Your name" required />
+    <textarea id="feedback" placeholder="Your feedback" required></textarea>
+    <button type="submit">Submit</button>
+  </form>
+
+  <div id="message"></div>
+
+  <h2>Feedback List</h2>
+  <table id="feedbackTable">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Message</th>
+        <th>Edit</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    var dbURL = "https://feedback-app-9838c-default-rtdb.firebaseio.com/feedbacks";
+    var form = document.getElementById("feedbackForm");
+    var msg = document.getElementById("message");
+    var usernameInput = document.getElementById("username");
+    var feedbackInput = document.getElementById("feedback");
+    var tableBody = document.querySelector("#feedbackTable tbody");
+
+    var editingId = null;
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      var name = usernameInput.value.trim();
+      var text = feedbackInput.value.trim();
+
+      if (name === "" || text === "") {
+        msg.textContent = "Please fill all fields";
+        msg.style.color = "red";
+        return;
+      }
+
+      var data = {
+        username: name,
+        message: text,
+      };
+
+      if (editingId) {
+        fetch(dbURL + "/" + editingId + ".json", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        })
+        .then(function(res) {
+          msg.textContent = "Feedback updated!";
+          msg.style.color = "green";
+          editingId = null;
+          form.reset();
+          loadFeedbacks();
+        });
+      } else {
+        // SUBMIT MODE
+        fetch(dbURL + ".json", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        })
+        .then(function(res) {
+          msg.textContent = "Feedback submitted!";
+          msg.style.color = "green";
+          form.reset();
+          loadFeedbacks();
+        });
+      }
+    });
+
+    function loadFeedbacks() {
+      fetch(dbURL + ".json")
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        tableBody.innerHTML = "";
+        for (var id in data) {
+          var row = document.createElement("tr");
+
+          var td1 = document.createElement("td");
+          td1.textContent = data[id].username;
+
+          var td2 = document.createElement("td");
+          td2.textContent = data[id].message;
+
+          var td3 = document.createElement("td");
+          var editBtn = document.createElement("span");
+          editBtn.textContent = "Edit";
+          editBtn.className = "edit-btn";
+          editBtn.onclick = (function(feedbackId, feedbackData) {
+            return function() {
+              usernameInput.value = feedbackData.username;
+              feedbackInput.value = feedbackData.message;
+              editingId = feedbackId;
+              msg.textContent = "Editing";
+              msg.style.color = "red";
+            };
+          })(id, data[id]);
+          td3.appendChild(editBtn);
+
+          row.appendChild(td1);
+          row.appendChild(td2);
+          row.appendChild(td3);
+          tableBody.appendChild(row);
+        }
+      });
+    }
+
+    loadFeedbacks();
+  </script>
+
+</body>
+</html>
